@@ -40,4 +40,5 @@ export const PERSON_SCHEMA = {
     "C",
     "Arduino",
   ],
+  sameAs: ["https://github.com/swaritpatel1409"],
 } as const;

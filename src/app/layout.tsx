@@ -53,7 +53,7 @@ export const metadata: Metadata = {
     "UIT Karnavati University",
     "Portfolio",
   ],
-  authors: [{ name: "Swarit Patel" }],
+  authors: [{ name: "Swarit Patel", url: "https://github.com/swaritpatel1409" }],
   creator: "Swarit Patel",
   openGraph: {
     title: TITLE,
@@ -99,7 +99,7 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           // Tells search engines who this page is about, so a search for the
-          // name can connect it to this page.
+          // name can connect it to the GitHub profile.
           dangerouslySetInnerHTML={{ __html: JSON.stringify(PERSON_SCHEMA) }}
         />
         <Analytics />

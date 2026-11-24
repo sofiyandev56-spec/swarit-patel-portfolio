@@ -12,10 +12,17 @@ export const EMAIL = "swaritpatel1409@gmail.com";
 export const NAV_LINK = { label: "Email", href: `mailto:${EMAIL}` };
 
 /**
- * Add GitHub / LinkedIn / Instagram here once they are confirmed; the contact
+ * Add LinkedIn / Instagram here once they are confirmed; the contact
  * section lists every entry that is not the email.
  */
 export const socialLinks: SocialLink[] = [
+  {
+    name: "GitHub",
+    url: "https://github.com/swaritpatel1409",
+    handle: "swaritpatel1409",
+    icon: "github",
+    primary: true,
+  },
   {
     name: "Email",
     url: `mailto:${EMAIL}`,
