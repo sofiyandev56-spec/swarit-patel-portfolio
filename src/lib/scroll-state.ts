@@ -1,0 +1,75 @@
+"use client";
+
+import { projects } from "@/data/projects";
+
+/**
+ * The page's scroll, as phase progress values.
+ *
+ * The experience is one long scroll cut into phases (hero, traverse, about,
+ * one per project, outro…). ScrollScript writes each phase's 0..1 progress
+ * here as the reader moves; the cosmos canvas and the fixed text layers read
+ * it every frame. Phases before the current one sit at 1 and later ones at 0,
+ * so anything cumulative (the star's rotation, say) can simply sum them.
+ *
+ * The projects are an array with one entry per card in data order, so adding
+ * a project to data/projects.ts is all it takes to give it a beat.
+ *
+ * A plain mutable object rather than React state: it changes every frame and
+ * nothing here should re-render for it.
+ */
+export const PHASES = ["hero", "traverse", "about", "projHeader", "tail", "outro", "contact"] as const;
+
+export type Phase = (typeof PHASES)[number];
+
+export const scrollState: Record<Phase, number> & {
+  /** One 0..1 progress per project card, in data order. */
+  proj: number[];
+  /** Normalised pointer, -1..1, for parallax. */
+  pointerX: number;
+  pointerY: number;
+  /** Pointer in CSS pixels; negative when it has left the window. */
+  cursorX: number;
+  cursorY: number;
+  /** Where the cosmos drew the star this frame, in CSS pixels, and its radius. */
+  starPx: number;
+  starPy: number;
+  starRadiusPx: number;
+  /** Overall page progress, 0..1, for the chart's progress rule. */
+  total: number;
+  /** True once the loader has finished and the scene may move. */
+  ready: boolean;
+} = {
+  hero: 0,
+  traverse: 0,
+  about: 0,
+  projHeader: 0,
+  proj: projects.map(() => 0),
+  tail: 0,
+  outro: 0,
+  contact: 0,
+  pointerX: 0,
+  pointerY: 0,
+  cursorX: -1000,
+  cursorY: -1000,
+  starPx: -1000,
+  starPy: -1000,
+  starRadiusPx: 0,
+  total: 0,
+  ready: false,
+};
+
+// Readable from the console while developing.
+if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+  (window as unknown as { __scroll: typeof scrollState }).__scroll = scrollState;
+}
+
+/** Smoothstep, for scroll-linked eases. NaN (a missing phase) reads as 0. */
+export function smooth(t: number) {
+  const x = Math.min(1, Math.max(0, t || 0));
+  return x * x * (3 - 2 * x);
+}
+
+/** Maps t from [a, b] to 0..1 with a smoothstep. */
+export function window01(t: number, a: number, b: number) {
+  return smooth((t - a) / (b - a));
+}

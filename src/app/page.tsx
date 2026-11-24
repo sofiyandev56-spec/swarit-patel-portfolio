@@ -1,0 +1,62 @@
+import { Loader } from "@/components/experience/loader";
+import { Nav } from "@/components/experience/nav";
+import { Rail } from "@/components/experience/rail";
+import { CosmosClient } from "@/components/experience/cosmos-client";
+import { Grain } from "@/components/experience/grain";
+import { Chart } from "@/components/experience/chart";
+import { HeroLayer } from "@/components/experience/hero-layer";
+import { Constellation } from "@/components/experience/constellation";
+import { ProjectStage } from "@/components/experience/project-stage";
+import { ScrollScript } from "@/components/experience/scroll-script";
+import { Contact } from "@/components/experience/contact";
+import { ABOUT_TEXT } from "@/data/constellation";
+import { projects } from "@/data/projects";
+
+/**
+ * The page is a script, not a stack of sections.
+ *
+ * Everything the reader sees lives in fixed layers (the cosmos canvas, the
+ * chart's grid, the hero text, the constellation, the project cards) and is
+ * driven by how far they have scrolled. The elements below inside <main> are
+ * mostly empty spacers that give each act its length; their `data-phase`
+ * names are what ScrollScript turns into progress, with one `proj` spacer per
+ * project. The only in-flow content is the contact section at the end and
+ * the screen-reader text.
+ */
+export default function Home() {
+  return (
+    <>
+      <Loader />
+      <Nav />
+      <Rail />
+      <CosmosClient />
+      <Grain />
+      <Chart />
+      <HeroLayer name="Swarit Patel" sub={["ECE", "VLSI Design", "Robotics"]} tag="Follow the star." />
+      <Constellation />
+      <ProjectStage />
+      <ScrollScript />
+
+      <main>
+        <section id="hero" data-phase="hero" className="phase-h-100">
+          <h1 className="sr-only">
+            Swarit Patel — B.Tech (Hons.) ECE, VLSI Design student at UIT, Karnavati University
+          </h1>
+        </section>
+        <div data-phase="traverse" className="phase-h-200" aria-hidden="true" />
+        <section id="about" data-phase="about" className="phase-h-400">
+          <p className="sr-only">{ABOUT_TEXT}</p>
+        </section>
+        <section id="projects" data-phase="projHeader" className="phase-h-100">
+          <h2 className="sr-only">Projects</h2>
+        </section>
+        {projects.map((project) => (
+          <div key={project.id} data-phase="proj" className="phase-h-150" aria-hidden="true" />
+        ))}
+        <div data-phase="tail" className="phase-h-70" aria-hidden="true" />
+        <div data-phase="outro" className="phase-h-160" aria-hidden="true" />
+        <Contact />
+      </main>
+    </>
+  );
+}

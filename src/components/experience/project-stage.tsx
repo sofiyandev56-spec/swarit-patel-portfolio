@@ -1,0 +1,243 @@
+"use client";
+
+import React, { useRef } from "react";
+import Image from "next/image";
+import { gsap, useGSAP } from "@/lib/gsap";
+import { scrollState, window01 } from "@/lib/scroll-state";
+import { REDUCED_MOTION } from "@/lib/use-media-query";
+import { projects, type Project, type ProjectGraphic } from "@/data/projects";
+import { Line, Words } from "@/components/experience/split";
+
+/**
+ * The projects act: a title, then one card per scroll segment.
+ *
+ * Cards alternate left and right while the star swings to the opposite side
+ * (see cosmos.tsx). Over the first part of its segment a card's frame
+ * resolves out of a grid of dots and its words rise into place one after
+ * another; it holds; then the whole card dissolves back into dots at the
+ * end (the .dither mask and the .w masks in globals.css). While hidden it
+ * is also `visibility: hidden` so its link cannot take keyboard focus
+ * off-screen. The title rises as one line and leaves the same way. On
+ * pointer devices a card also tilts a few degrees towards the pointer.
+ */
+export function ProjectStage() {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useGSAP(
+    () => {
+      const root = ref.current;
+      if (!root) return;
+      const reduce = window.matchMedia(REDUCED_MOTION).matches;
+      const fine = window.matchMedia("(pointer: fine)").matches;
+      const title = root.querySelector<HTMLElement>(".proj-title");
+      const titleLine = title?.querySelector<HTMLElement>(".ln > i");
+      if (!title || !titleLine) return;
+      const cards = Array.from(root.querySelectorAll<HTMLElement>(".pcard-anim")).map((el) => ({
+        el,
+        frame: el.querySelector<HTMLElement>(".pframe"),
+        words: Array.from(el.querySelectorAll<HTMLElement>(".ptext .w > i")),
+        shown: false,
+      }));
+
+      // Every value is cached so a frame with no change writes nothing.
+      const last = new Map<HTMLElement, string>();
+      const write = (el: HTMLElement, key: string, value: string, set: () => void) => {
+        const k = key + value;
+        if (last.get(el) === k) return;
+        last.set(el, k);
+        set();
+      };
+      const setGo = (el: HTMLElement, go: number) => {
+        const v = `${go.toFixed(1)}%`;
+        write(el, "go", v, () => el.style.setProperty("--go", v));
+      };
+      const setRise = (el: HTMLElement, t: number) => {
+        const v = t >= 1 ? "none" : `translateY(${((1 - t) * 115).toFixed(1)}%)`;
+        write(el, "rise", v, () => (el.style.transform = v));
+      };
+      const hide = (el: HTMLElement) => {
+        el.style.visibility = "hidden";
+        el.style.opacity = "0";
+        el.style.pointerEvents = "none";
+      };
+      const show = (el: HTMLElement) => {
+        el.style.visibility = "visible";
+        el.style.opacity = "1";
+      };
+
+      const tick = () => {
+        const s = scrollState;
+        // Title: in during the header beat, out as the first card arrives.
+        const tIn = window01(s.projHeader, 0.12, 0.5);
+        const tOut = window01(s.proj[0] ?? 0, 0, 0.25);
+        if (tIn <= 0.001 || tOut >= 0.999) {
+          hide(title);
+        } else {
+          show(title);
+          setRise(titleLine, reduce ? 1 : tIn);
+          setGo(title, reduce ? 100 : (1 - tOut) * 100);
+          title.style.transform = `translate3d(0, ${(-tOut * 20).toFixed(1)}px, 0)`;
+        }
+
+        cards.forEach((c, i) => {
+          const p = s.proj[i] ?? 0;
+          const cIn = window01(p, 0.06, 0.32);
+          const cOut = window01(p, 0.74, 0.98);
+          if (cIn <= 0.001 || cOut >= 0.999) {
+            if (c.shown) {
+              c.shown = false;
+              hide(c.el);
+            }
+            return;
+          }
+          c.shown = true;
+          show(c.el);
+          c.el.style.transform = `translate3d(0, ${((1 - cIn) * 20 - cOut * 30).toFixed(1)}px, 0)`;
+          c.el.style.pointerEvents = cIn > 0.6 && cOut < 0.2 ? "auto" : "none";
+          setGo(c.el, reduce ? 100 : (1 - cOut) * 100);
+          if (c.frame) setGo(c.frame, reduce ? 100 : cIn * 100);
+          // Words rise in order; the stagger is sized so the last word lands
+          // exactly as the frame finishes resolving.
+          const n = c.words.length;
+          const stagger = Math.min(0.03, 0.6 / Math.max(1, n - 1));
+          const spread = 1 + (n - 1) * stagger;
+          for (let w = 0; w < n; w++) {
+            const t = reduce ? 1 : Math.min(1, Math.max(0, cIn * spread - w * stagger));
+            setRise(c.words[w], t);
+          }
+        });
+      };
+      gsap.ticker.add(tick);
+
+      // Tilt: up to ±4° towards the pointer, easing back when it leaves.
+      const tilts: (() => void)[] = [];
+      if (fine && !reduce) {
+        root.querySelectorAll<HTMLElement>(".pcard").forEach((card) => {
+          const onMove = (e: PointerEvent) => {
+            const r = card.getBoundingClientRect();
+            const nx = (e.clientX - r.left) / r.width - 0.5;
+            const ny = (e.clientY - r.top) / r.height - 0.5;
+            card.style.setProperty("--rx", `${(-ny * 8).toFixed(2)}deg`);
+            card.style.setProperty("--ry", `${(nx * 8).toFixed(2)}deg`);
+          };
+          const onLeave = () => {
+            card.style.setProperty("--rx", "0deg");
+            card.style.setProperty("--ry", "0deg");
+          };
+          card.addEventListener("pointermove", onMove, { passive: true });
+          card.addEventListener("pointerleave", onLeave);
+          tilts.push(() => {
+            card.removeEventListener("pointermove", onMove);
+            card.removeEventListener("pointerleave", onLeave);
+          });
+        });
+      }
+
+      return () => {
+        gsap.ticker.remove(tick);
+        tilts.forEach((off) => off());
+      };
+    },
+    { scope: ref }
+  );
+
+  return (
+    <div ref={ref} className="layer proj-stage">
+      <div className="proj-title serif dither" aria-hidden="true">
+        <Line>Projects</Line>
+      </div>
+      {projects.map((project, i) => (
+        <div key={project.id} className={`pcard-slot ${i % 2 === 0 ? "left" : "right"}`}>
+          <div className="pcard-anim dither">
+            <div className="card-mag" data-magnetic="10">
+              <Card project={project} first={i === 0} />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Frame({ project, first }: { project: Project; first: boolean }) {
+  return (
+    <div className="pframe dither">
+      <div className="pvisual">
+        {project.image ? (
+          <Image
+            src={project.image.src}
+            alt={project.image.alt}
+            width={project.image.width}
+            height={project.image.height}
+            sizes="(max-width: 767px) 85vw, 576px"
+            // The first card is the page's largest image; fetch it during the
+            // intro so it is ready the moment the projects act arrives.
+            priority={first}
+          />
+        ) : project.graphic ? (
+          <DrawnGraphic graphic={project.graphic} />
+        ) : null}
+      </div>
+      <div className="pveil" />
+      <span className="pc tl" />
+      <span className="pc tr" />
+      <span className="pc bl" />
+      <span className="pc br" />
+    </div>
+  );
+}
+
+/** Decorative stand-in drawn from the card's data when there is no capture. */
+function DrawnGraphic({ graphic }: { graphic: ProjectGraphic }) {
+  return (
+    <div className="pgraphic" aria-hidden="true">
+      <div>
+        <span>{graphic.kicker}</span>
+        <strong>{graphic.title}</strong>
+      </div>
+      <div className="pgraphic-grid">
+        {graphic.cells.map(([label, value]) => (
+          <div key={label}>
+            {label}
+            <strong>{value}</strong>
+          </div>
+        ))}
+      </div>
+      <div>{graphic.foot}</div>
+    </div>
+  );
+}
+
+function Card({ project, first }: { project: Project; first: boolean }) {
+  const body = (
+    <>
+      <Frame project={project} first={first} />
+      <div className="ptext">
+        <span className="psur">
+          <Words text={project.label} />
+        </span>
+        <h3 className="serif">
+          <Words text={project.title} />
+        </h3>
+        <p className="pdesc">
+          <Words text={project.blurb} />
+        </p>
+      </div>
+    </>
+  );
+  if (project.href) {
+    return (
+      <a
+        className="pcard"
+        href={project.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-cursor="visit"
+        aria-label={`${project.title} — open`}
+      >
+        {body}
+      </a>
+    );
+  }
+  return <div className="pcard">{body}</div>;
+}
